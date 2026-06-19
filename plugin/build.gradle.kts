@@ -24,24 +24,26 @@ dependencies {
 
 intellijPlatform {
     pluginConfiguration {
-        id.set("com.github.developer.aiworktreereviewer")
-        name.set("AI Worktree Reviewer")
-        version.set("1.0.0")
+        id = "com.github.developer.aiworktreereviewer"
+        name = "AI Worktree Reviewer"
+        version = project.version.toString()
         
         ideaVersion {
-            sinceBuild.set("241")
-            untilBuild.set("242.*")
+            sinceBuild = "241"
+            untilBuild = "242"
         }
+        
+        description = "AI-powered worktree reviewer for Android Studio"
     }
     
     signing {
-        certificateChain.set(System.getenv("CERTIFICATE_CHAIN"))
-        privateKey.set(System.getenv("PRIVATE_KEY"))
-        password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
+        certificateChain = System.getenv("CERTIFICATE_CHAIN") ?: ""
+        privateKey = System.getenv("PRIVATE_KEY") ?: ""
+        password = System.getenv("PRIVATE_KEY_PASSWORD") ?: ""
     }
     
     publishing {
-        token.set(System.getenv("PUBLISH_TOKEN"))
+        token = System.getenv("PUBLISH_TOKEN") ?: ""
     }
 }
 
