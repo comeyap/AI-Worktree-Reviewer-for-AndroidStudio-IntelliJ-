@@ -42,8 +42,7 @@ intellijPlatform {
         name.set("AI Worktree Reviewer")
         version.set("1.0.0")
         
-        patchPluginXml {
-            version.set("1.0.0")
+        ideaVersion {
             sinceBuild.set("241")
             untilBuild.set("242.*")
         }
