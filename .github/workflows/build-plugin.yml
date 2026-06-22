@@ -12,6 +12,11 @@ jobs:
   build:
     name: Build & Package
     runs-on: ubuntu-latest
+    # Required so the release job can upload the packaged .zip as a Release Asset.
+    # Without contents:write the default GITHUB_TOKEN is read-only and
+    # softprops/action-gh-release fails with "Resource not accessible by integration".
+    permissions:
+      contents: write
     steps:
       # 1. Checkout repository code
       - name: Checkout Code
@@ -24,17 +29,16 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # 3. Cache and setup specific Gradle 8.8 to avoid Gradle 9 incompatibility issues
+      # 3. Cache Gradle. The version is pinned by the project's Gradle wrapper
+      #    (plugin/gradle/wrapper); IntelliJ Platform plugin 2.x requires Gradle 9+.
       - name: Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.8'
           build-root-directory: plugin
 
-      # 4. Build and verify the IntelliJ/Android Studio plugin
-      # Runs directly inside the plugin subdirectory using the pinned Gradle 8.8
+      # 4. Build and verify the IntelliJ/Android Studio plugin via the Gradle wrapper
       - name: Build Plugin
-        run: gradle buildPlugin
+        run: ./gradlew buildPlugin
         working-directory: plugin
 
       # 5. Upload the compiled ZIP file in Github Actions Artifacts

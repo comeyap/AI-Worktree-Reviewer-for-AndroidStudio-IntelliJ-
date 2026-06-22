@@ -1,6 +1,0 @@
-{
-  "name": "AI Worktree Reviewer Simulator",
-  "description": "An interactive, high-fidelity simulator and Kotlin source code generator for the Android Studio Git Worktree Reviewer plugin, enabling side-by-side diff review, worktree lifecycle management, and customized shortcuts.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
