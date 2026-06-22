@@ -25,7 +25,7 @@ export function alignDiffLines(original: string, modified: string): AlignedLine[
 
   for (let i = 1; i <= originalLength; i++) {
     for (let j = 1; j <= modifiedLength; j++) {
-      if (oLines[i - 1].trim() === mLines[j - 1].trim()) {
+      if (oLines[i - 1] === mLines[j - 1]) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
@@ -39,7 +39,7 @@ export function alignDiffLines(original: string, modified: string): AlignedLine[
 
   // Backtrack to build aligned lines
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oLines[i - 1].trim() === mLines[j - 1].trim()) {
+    if (i > 0 && j > 0 && oLines[i - 1] === mLines[j - 1]) {
       aligned.unshift({
         originalIndex: i,
         originalText: oLines[i - 1],
