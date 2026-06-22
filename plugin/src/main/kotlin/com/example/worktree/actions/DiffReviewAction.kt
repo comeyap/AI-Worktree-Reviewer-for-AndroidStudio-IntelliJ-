@@ -4,9 +4,9 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.diff.DiffContentFactory
 import com.intellij.diff.DiffManager
 import com.intellij.diff.requests.SimpleDiffRequest
-import com.intellij.diff.contents.FileContentImpl
 import com.intellij.openapi.vfs.VirtualFile
 import java.io.File
 
@@ -36,8 +36,9 @@ class DiffReviewAction(
             return
         }
 
-        val originalContent = FileContentImpl(project, originalVf)
-        val modifiedContent = FileContentImpl(project, modifiedVf)
+        val diffContentFactory = DiffContentFactory.getInstance()
+        val originalContent = diffContentFactory.create(project, originalVf)
+        val modifiedContent = diffContentFactory.create(project, modifiedVf)
 
         // Instantiates side-by-side editor with left: Main branch, right: Worktree branch
         val diffRequest = SimpleDiffRequest(
