@@ -1,10 +1,11 @@
-node_modules/
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# JetBrains IDE / Gradle build artifacts
+.idea/
 build/
 .gradle/
 .intellijPlatform/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
