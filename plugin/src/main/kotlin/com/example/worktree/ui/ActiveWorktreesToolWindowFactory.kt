@@ -7,6 +7,7 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import com.example.worktree.service.WorktreeService
 import com.example.worktree.service.WorktreeInfo
+import com.example.worktree.actions.DiffReviewAction
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBLabel
@@ -14,6 +15,7 @@ import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.FlowLayout
+import java.io.File
 import javax.swing.*
 
 class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
@@ -47,6 +49,26 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             }
         }
         panel.add(JBScrollPane(scrollList), BorderLayout.CENTER)
+
+        // Open the first modified file of the selected worktree in a side-by-side
+        // diff (Main repository vs. worktree). git diff runs off the EDT.
+        fun openDiff(worktree: WorktreeInfo) {
+            val basePath = project.basePath ?: return
+            ApplicationManager.getApplication().executeOnPooledThread {
+                val modified = worktreeService.getModifiedFiles(worktree.path)
+                ApplicationManager.getApplication().invokeLater {
+                    val relativePath = modified.firstOrNull() ?: return@invokeLater
+                    val mainOriginal = File(basePath, relativePath)
+                    val worktreeModified = File(worktree.path, relativePath)
+                    DiffReviewAction(project, mainOriginal, worktreeModified, relativePath).showDiff()
+                }
+            }
+        }
+        scrollList.addListSelectionListener { event ->
+            if (!event.valueIsAdjusting) {
+                scrollList.selectedValue?.let { openDiff(it) }
+            }
+        }
 
         // Load worktrees off the EDT so a slow or hanging git process never
         // freezes the IDE UI thread; results are applied back on the EDT.

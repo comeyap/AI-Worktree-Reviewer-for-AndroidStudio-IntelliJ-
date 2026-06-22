@@ -18,6 +18,14 @@ class DiffReviewAction(
 ) : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
+        showDiff()
+    }
+
+    /**
+     * Opens the native side-by-side diff (left: Main repository, right: Worktree).
+     * Callable directly from UI code that has no AnActionEvent. Must run on the EDT.
+     */
+    fun showDiff() {
         val originalVf: VirtualFile? = LocalFileSystem.getInstance()
             .refreshAndFindFileByIoFile(mainOriginalFile)
         val modifiedVf: VirtualFile? = LocalFileSystem.getInstance()
