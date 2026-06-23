@@ -72,20 +72,28 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         // ----- Diff helpers -----
         // Reuse a single diff editor tab: close the previous one before opening a
         // new one, so navigating files never stacks duplicate diff windows/tabs.
-        var lastDiffFile: VirtualFile? = null
-        var lastDiffWorktreePath: String? = null
-        fun closeOpenDiff() {
-            lastDiffFile?.let { if (it.isValid) FileEditorManager.getInstance(project).closeFile(it) }
-            lastDiffFile = null
-            lastDiffWorktreePath = null
-        }
-        fun showDiff(requests: List<SimpleDiffRequest>, title: String, worktreePath: String) {
+        // Track open diff tabs per (worktree, file) key, so re-opening the same
+        // file focuses its existing tab (no duplicate), while different files open
+        // in their own tabs.
+        val openDiffs = HashMap<String, VirtualFile>()
+        fun showDiff(key: String, requests: List<SimpleDiffRequest>, title: String) {
             if (requests.isEmpty()) return
-            closeOpenDiff()
+            val editorManager = FileEditorManager.getInstance(project)
+            val cached = openDiffs[key]
+            if (cached != null && cached.isValid && editorManager.isFileOpen(cached)) {
+                editorManager.openFile(cached, true) // already open → just focus it
+                return
+            }
             val diffFile = ChainDiffVirtualFile(SimpleDiffRequestChain(requests), title)
-            lastDiffFile = diffFile
-            lastDiffWorktreePath = worktreePath
-            FileEditorManager.getInstance(project).openFile(diffFile, true)
+            openDiffs[key] = diffFile
+            editorManager.openFile(diffFile, true)
+        }
+        fun closeWorktreeDiffs(worktreePath: String) {
+            val editorManager = FileEditorManager.getInstance(project)
+            val prefix = "$worktreePath\n"
+            openDiffs.keys.filter { it.startsWith(prefix) }.toList().forEach { key ->
+                openDiffs.remove(key)?.let { if (it.isValid) editorManager.closeFile(it) }
+            }
         }
 
         fun buildRequest(worktree: WorktreeInfo, relativePath: String): SimpleDiffRequest? {
@@ -111,13 +119,13 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
 
         fun openSingleDiff(worktree: WorktreeInfo, relativePath: String) {
             val request = buildRequest(worktree, relativePath) ?: return
-            showDiff(listOf(request), relativePath, worktree.path)
+            showDiff("${worktree.path}\n${relativePath}", listOf(request), relativePath)
         }
 
         // Opens every changed file in the one diff tab; page through with prev/next.
         fun reviewAll(worktree: WorktreeInfo, files: List<String>) {
             val requests = files.mapNotNull { buildRequest(worktree, it) }
-            showDiff(requests, "${worktree.name} — all changes", worktree.path)
+            showDiff("${worktree.path}\nALL", requests, "${worktree.name} — all changes")
         }
 
         // Loads the changed files for a worktree; also refreshes its +/- badge.
@@ -169,8 +177,8 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             app.executeOnPooledThread {
                 service.removeWorktree(worktree.path)
                 app.invokeLater {
-                    // Close the diff tab if it belongs to the worktree being removed.
-                    if (lastDiffWorktreePath == worktree.path) closeOpenDiff()
+                    // Close any open diffs for the worktree being removed.
+                    closeWorktreeDiffs(worktree.path)
                     reloadWorktrees()
                 }
             }
