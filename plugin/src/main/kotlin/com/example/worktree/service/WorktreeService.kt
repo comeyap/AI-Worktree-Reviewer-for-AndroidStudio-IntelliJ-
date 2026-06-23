@@ -111,6 +111,10 @@ class WorktreeService(private val project: Project) {
         runCommand(worktreePath, listOf("git", "diff", "HEAD", "--name-only"))
             .split("\n").filter { it.isNotBlank() }
 
+    /** True if the worktree has any uncommitted or untracked changes. */
+    fun hasUncommittedChanges(worktreePath: String): Boolean =
+        runCommand(worktreePath, listOf("git", "status", "--porcelain")).isNotBlank()
+
     /**
      * Removes a worktree. Returns true on success. Without [force], git refuses
      * to remove a worktree that has uncommitted or untracked changes.

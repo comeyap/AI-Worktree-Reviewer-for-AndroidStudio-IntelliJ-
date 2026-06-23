@@ -167,42 +167,38 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
 
         // Removes the selected worktree after confirmation, then reloads the list.
         fun deleteWorktree(worktree: WorktreeInfo) {
-            val choice = Messages.showYesNoDialog(
-                project,
-                "Remove worktree \"${worktree.name}\"?\n${worktree.path}",
-                "Remove Worktree",
-                Messages.getQuestionIcon()
-            )
-            if (choice != Messages.YES) return
+            // Check for uncommitted/untracked work first, so a dirty worktree shows
+            // the strong "permanent data loss" warning up front (not as a second step).
             app.executeOnPooledThread {
-                val removed = service.removeWorktree(worktree.path)
+                val dirty = service.hasUncommittedChanges(worktree.path)
                 app.invokeLater {
-                    if (removed) {
-                        closeWorktreeDiffs(worktree.path)
-                        reloadWorktrees()
-                        return@invokeLater
+                    val confirmed = if (dirty) {
+                        Messages.showYesNoDialog(
+                            project,
+                            "⚠ WARNING — THIS PERMANENTLY DELETES UNCOMMITTED WORK ⚠\n\n" +
+                                "\"${worktree.name}\" has uncommitted or untracked changes.\n\n" +
+                                "Path: ${worktree.path}\n\n" +
+                                "Removing it will PERMANENTLY DISCARD all of those changes. " +
+                                "There is NO undo and the work CANNOT be recovered.\n\n" +
+                                "Only continue if you are absolutely sure you no longer need this work.",
+                            "Force Remove Worktree — Permanent Data Loss",
+                            "Force remove (discard all changes)",
+                            "Cancel",
+                            Messages.getWarningIcon()
+                        ) == Messages.YES
+                    } else {
+                        Messages.showYesNoDialog(
+                            project,
+                            "Remove worktree \"${worktree.name}\"?\n${worktree.path}",
+                            "Remove Worktree",
+                            Messages.getQuestionIcon()
+                        ) == Messages.YES
                     }
-                    // git refused — usually uncommitted/untracked changes. Offer a forced remove
-                    // with a strong warning, since this permanently discards that work.
-                    val forceChoice = Messages.showYesNoDialog(
-                        project,
-                        "⚠ WARNING — THIS PERMANENTLY DELETES UNCOMMITTED WORK ⚠\n\n" +
-                            "\"${worktree.name}\" could not be removed because it contains " +
-                            "uncommitted or untracked changes.\n\n" +
-                            "Path: ${worktree.path}\n\n" +
-                            "Force-removing will PERMANENTLY DISCARD all of those changes. " +
-                            "There is NO undo and the work CANNOT be recovered.\n\n" +
-                            "Only continue if you are absolutely sure you no longer need this work.",
-                        "Force Remove Worktree — Permanent Data Loss",
-                        "Force remove (discard all changes)",
-                        "Cancel",
-                        Messages.getWarningIcon()
-                    )
-                    if (forceChoice != Messages.YES) return@invokeLater
+                    if (!confirmed) return@invokeLater
                     app.executeOnPooledThread {
-                        val forced = service.removeWorktree(worktree.path, force = true)
+                        val removed = service.removeWorktree(worktree.path, force = dirty)
                         app.invokeLater {
-                            if (forced) {
+                            if (removed) {
                                 closeWorktreeDiffs(worktree.path)
                             } else {
                                 Messages.showErrorDialog(
