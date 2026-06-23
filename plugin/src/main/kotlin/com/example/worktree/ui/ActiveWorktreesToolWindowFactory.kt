@@ -175,11 +175,36 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             )
             if (choice != Messages.YES) return
             app.executeOnPooledThread {
-                service.removeWorktree(worktree.path)
+                val removed = service.removeWorktree(worktree.path)
                 app.invokeLater {
-                    // Close any open diffs for the worktree being removed.
-                    closeWorktreeDiffs(worktree.path)
-                    reloadWorktrees()
+                    if (removed) {
+                        closeWorktreeDiffs(worktree.path)
+                        reloadWorktrees()
+                        return@invokeLater
+                    }
+                    // git refused — usually uncommitted/untracked changes. Offer a forced remove.
+                    val forceChoice = Messages.showYesNoDialog(
+                        project,
+                        "Could not remove \"${worktree.name}\".\nIt may contain uncommitted or untracked changes. Force remove? (those changes will be lost)",
+                        "Force Remove Worktree",
+                        Messages.getWarningIcon()
+                    )
+                    if (forceChoice != Messages.YES) return@invokeLater
+                    app.executeOnPooledThread {
+                        val forced = service.removeWorktree(worktree.path, force = true)
+                        app.invokeLater {
+                            if (forced) {
+                                closeWorktreeDiffs(worktree.path)
+                            } else {
+                                Messages.showErrorDialog(
+                                    project,
+                                    "Failed to remove worktree \"${worktree.name}\". See idea.log for details.",
+                                    "Remove Worktree"
+                                )
+                            }
+                            reloadWorktrees()
+                        }
+                    }
                 }
             }
         }
