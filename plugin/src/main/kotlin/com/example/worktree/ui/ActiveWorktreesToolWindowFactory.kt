@@ -167,19 +167,49 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
 
         // Removes the selected worktree after confirmation, then reloads the list.
         fun deleteWorktree(worktree: WorktreeInfo) {
-            val choice = Messages.showYesNoDialog(
-                project,
-                "Remove worktree \"${worktree.name}\"?\n${worktree.path}",
-                "Remove Worktree",
-                Messages.getQuestionIcon()
-            )
-            if (choice != Messages.YES) return
+            // Check for uncommitted/untracked work first, so a dirty worktree shows
+            // the strong "permanent data loss" warning up front (not as a second step).
             app.executeOnPooledThread {
-                service.removeWorktree(worktree.path)
+                val dirty = service.hasUncommittedChanges(worktree.path)
                 app.invokeLater {
-                    // Close any open diffs for the worktree being removed.
-                    closeWorktreeDiffs(worktree.path)
-                    reloadWorktrees()
+                    val confirmed = if (dirty) {
+                        Messages.showYesNoDialog(
+                            project,
+                            "⚠ WARNING — THIS PERMANENTLY DELETES UNCOMMITTED WORK ⚠\n\n" +
+                                "\"${worktree.name}\" has uncommitted or untracked changes.\n\n" +
+                                "Path: ${worktree.path}\n\n" +
+                                "Removing it will PERMANENTLY DISCARD all of those changes. " +
+                                "There is NO undo and the work CANNOT be recovered.\n\n" +
+                                "Only continue if you are absolutely sure you no longer need this work.",
+                            "Force Remove Worktree — Permanent Data Loss",
+                            "Force remove (discard all changes)",
+                            "Cancel",
+                            Messages.getWarningIcon()
+                        ) == Messages.YES
+                    } else {
+                        Messages.showYesNoDialog(
+                            project,
+                            "Remove worktree \"${worktree.name}\"?\n${worktree.path}",
+                            "Remove Worktree",
+                            Messages.getQuestionIcon()
+                        ) == Messages.YES
+                    }
+                    if (!confirmed) return@invokeLater
+                    app.executeOnPooledThread {
+                        val removed = service.removeWorktree(worktree.path, force = dirty)
+                        app.invokeLater {
+                            if (removed) {
+                                closeWorktreeDiffs(worktree.path)
+                            } else {
+                                Messages.showErrorDialog(
+                                    project,
+                                    "Failed to remove worktree \"${worktree.name}\". See idea.log for details.",
+                                    "Remove Worktree"
+                                )
+                            }
+                            reloadWorktrees()
+                        }
+                    }
                 }
             }
         }

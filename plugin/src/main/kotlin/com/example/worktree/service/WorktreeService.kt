@@ -111,18 +111,32 @@ class WorktreeService(private val project: Project) {
         runCommand(worktreePath, listOf("git", "diff", "HEAD", "--name-only"))
             .split("\n").filter { it.isNotBlank() }
 
-    fun removeWorktree(worktreePath: String) {
-        val rootPath = project.basePath ?: return
-        try {
-            val process = ProcessBuilder("git", "worktree", "remove", worktreePath)
+    /** True if the worktree has any uncommitted or untracked changes. */
+    fun hasUncommittedChanges(worktreePath: String): Boolean =
+        runCommand(worktreePath, listOf("git", "status", "--porcelain")).isNotBlank()
+
+    /**
+     * Removes a worktree. Returns true on success. Without [force], git refuses
+     * to remove a worktree that has uncommitted or untracked changes.
+     */
+    fun removeWorktree(worktreePath: String, force: Boolean = false): Boolean {
+        val rootPath = project.basePath ?: return false
+        return try {
+            val command = mutableListOf("git", "worktree", "remove")
+            if (force) command.add("--force")
+            command.add(worktreePath)
+            val process = ProcessBuilder(command)
                 .directory(File(rootPath))
                 .redirectErrorStream(true)
                 .start()
             // Drain the output so the process never blocks on a full pipe.
-            process.inputStream.bufferedReader().use { it.readText() }
-            process.waitFor()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            val exitCode = process.waitFor()
+            if (exitCode != 0) logger.warn("git worktree remove failed (exit $exitCode): $output")
+            exitCode == 0
         } catch (e: Exception) {
             logger.warn("Failed to remove worktree: $worktreePath", e)
+            false
         }
     }
 
